@@ -1,11 +1,27 @@
 import json
 from base64 import b64encode, b64decode
 import argparse
+from os import path
 from Crypto.Util.Padding import pad , unpad
 from Crypto.Cipher import AES
+import lzma
 
 KEY_LENGTH = 32
 BLOCK_SIZE = KEY_LENGTH
+
+
+def decompress(file):
+    file=lzma.LZMAFile( file, mode="rb")
+    data_out=file.read()
+    file.close()
+    return data_out
+
+
+def compress(file, data:bytes):
+    file=lzma.LZMAFile(file, mode="wb")
+    file.write(data)
+    file.close()
+
 
 
 def handle_encrypt(args):
@@ -17,17 +33,18 @@ def handle_encrypt(args):
 
     iv = b64encode(cipher.iv).decode('utf-8')
     ct = b64encode(ciphertext).decode('utf-8')
-    with open( args.output, "wb") as fw:
-        result = json.dumps({'iv':iv, 'ciphertext':ct})
-        fw.write(b64encode( result.encode()))
+
+    result = json.dumps({'iv':iv, 'ciphertext':ct}).encode()
+
+    compress(args.output, result)
+
+
+
 
 def handle_decrypt(args):
     key = args.key
 
-    with open(args.input, "rb") as f:
-        blob = f.read()
-
-    json_data = b64decode( blob)
+    json_data = decompress(args.input)
     json_data = json.loads(json_data)
     iv  = json_data["iv"]
     iv = b64decode(iv)
@@ -54,7 +71,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--decrypt", "-d", action="store_true",help="Whether is it decrypting or not")
     parser.add_argument("--input", "-i",type=str, required=True, help="The input file ( can be the ciphertext or the file)")
-    parser.add_argument("--output", "-o",default="aes256.out", help="output file ( can be the ciphertext or the file)")
+    parser.add_argument("--output", "-o",default="aes.out", help="output file ( can be the ciphertext or the file)")
     parser.add_argument("--key", "-k", type=str, required=True, help="the key used to encrypt")
 
     args = parser.parse_args()
